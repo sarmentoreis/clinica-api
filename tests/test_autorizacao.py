@@ -24,7 +24,8 @@ async def test_mitigacao_bola_medico_nao_pode_ler_consulta_alheia():
     consulta_real = Consulta(
         paciente_nome="João Silva",
         profissional_nome="dr_leo",
-        data_hora="2026-12-01T10:00:00"
+        data_hora="2026-12-01T10:00:00",
+        token_auditoria="hash_de_teste_123"
     )
     await consulta_real.insert()
 
@@ -44,16 +45,18 @@ async def test_mitigacao_escopo_m2m_laboratorio_nao_pode_escrever():
     Vetor: Abuso de privilégios.
     Garante que o laboratório (que só tem escopo de leitura) não pode criar consultas.
     """
-    app.dependency_overrides[security.get_current_user] = mock_laboratorio_m2m
+    token_leitura = security.create_access_token(
+        data={"sub": "lab_parceiro", "role": "laboratorio", "scopes": ["consultas:read"]}
+    )
     
     payload_malicioso = {
         "paciente_nome": "Invasão Teste",
         "data_hora": "2026-12-01T10:00:00"
     }
     
+    headers = {"Authorization": f"Bearer {token_leitura}"}
+    
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        response = await ac.post("/consultas/", json=payload_malicioso)
-        
-    app.dependency_overrides.clear()
+        response = await ac.post("/consultas/", json=payload_malicioso, headers=headers)
     
     assert response.status_code == 403
