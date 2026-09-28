@@ -9,6 +9,11 @@ on:
 jobs:
   security-and-tests:
     runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
     steps:
       - name: Checkout do Código
         uses: actions/checkout@v3
