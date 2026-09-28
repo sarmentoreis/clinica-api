@@ -1,7 +1,7 @@
 import uvicorn
 from database.connection import settings
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Form, Depends, HTTPException
+from fastapi import FastAPI, Form, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from auth import security
@@ -34,7 +34,7 @@ app.include_router(consultas.router)
 
 @app.post("/token", tags=["Autenticação Humana"])
 @limiter.limit("5/minute")
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
     user = await User.find_one(User.username == form_data.username)
     if not user or not security.verify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
@@ -55,7 +55,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.post("/token/b2b", tags=["Autenticação M2M"])
 @limiter.limit("20/minute")
-async def login_b2b(grant_type: str = Form(...), client_id: str = Form(...), client_secret: str = Form(...)):   
+async def login_b2b(request: Request, grant_type: str = Form(...), client_id: str = Form(...), client_secret: str = Form(...)):   
     if grant_type != "client_credentials":
         raise HTTPException(status_code=400, detail="Grant type não suportado para B2B")
         
