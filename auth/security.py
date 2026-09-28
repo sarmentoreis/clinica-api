@@ -1,6 +1,7 @@
+import jwt
+from jwt.exceptions import InvalidTokenError
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
-from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import (
     OAuth2PasswordBearer, 
@@ -72,7 +73,7 @@ async def get_current_user(
         token_scopes = payload.get("scopes", [])
         if username is None:
             raise credentials_exception
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
     for scope in security_scopes.scopes:
