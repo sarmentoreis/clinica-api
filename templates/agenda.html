@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block titulo %}Agenda do Dia{% endblock %}
+
+{% block conteudo %}
+    <h2>Consultas Agendadas</h2>
+    <ul>
+        {% for consulta in consultas %}
+            <li>
+                <strong>Paciente:</strong> {{ consulta.paciente_nome }} <br>
+                <strong>Médico(a):</strong> {{ consulta.profissional_nome }} <br>
+                
+                <strong>Notas Internas:</strong> {{ consulta.notas_medicas }}
+            </li>
+            <hr>
+        {% endfor %}
+    </ul>
+{% endblock %}
