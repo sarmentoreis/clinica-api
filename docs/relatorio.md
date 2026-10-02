@@ -164,3 +164,35 @@ O pipeline de CI/CD será bloqueado sempre que o SAST ou o SCA encontrarem vulne
 | BOLA (IDOR) - Leitura de prontuário de terceiro | 8.5                 | Alta       | Impacto: Violação severa de privacidade médica (LGPD/HIPAA). Quebra de confiança com o paciente e exposição da clínica a processos judiciais.        |
 | BFLA - Limpeza total de consultas por não-admin | 8.1                 | Alta       | Impacto: Perda de disponibilidade e integridade. A exclusão da base de dados paralisa a operação da clínica e o atendimento aos pacientes.           |
 | Mass Assignment - Falsificação do médico autor  | 7.5                 | Alta       | Impacto: Repúdio e fraude. Um prontuário com médico forjado invalida o histórico clínico e impossibilita a responsabilização legal por diagnósticos. |
+
+## Ex13
+### **OWASP Zap**
+Vide HTML gerado pela ferramenta `2026-09-29-ZAP-Report-`
+
+### **Consolidação Arquitetural e Testes de Segurança**
+
+A aplicação FastAPI foi consolidada integrando autenticação híbrida (OAuth2 com JWT e MFA), validação estrita de entrada via Pydantic V2 (extra='forbid', Regex), persistência assíncrona segura e um SecurityHeadersMiddleware. A bateria de testes automatizados com pytest e mocking valida eficazmente as fronteiras de autorização (BOLA e BFLA) e a rejeição de pedidos maliciosos (XSS e Mass Assignment). A especificação OpenAPI expõe corretamente os esquemas de segurança e requisitos de validação sem vazar lógica de negócio.
+
+### **Matriz de Correlação de Vulnerabilidades (Threat Model & OWASP ZAP)**
+
+| **Ferramenta / Origem** | **Risco Identificado**                                                          | **Categoria OWASP**                                               | **Estado e Mitigação no Código**                                                                                                                                                                                                                                                                                                                                               |
+|-------------------------|---------------------------------------------------------------------------------|-------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **OWASP ZAP**           | Credenciais de Autenticação Capturadas (Risco Alto) na rota /token.             | A02:2021 - Cryptographic Failures / A07 - Authentication Failures | Mitigado (Requisito de Infraestrutura): O ZAP alerta para o tráfego em HTTP (texto claro) no localhost:8080 utilizando um mecanismo que revela o nome de utilizador e a senha. A autenticação por JWT gerada no projeto é segura; a criptografia em trânsito será garantida pelo certificado TLS/SSL no ambiente de produção, não transmitindo a senha de forma não encriptada |
+| **OWASP ZAP**           | Content Security Policy (CSP) Not Set (Risco Médio) na rota do Swagger (/docs)  | A05:2021 - Security Misconfiguration                              | Corrigido: Mitigável através da expansão do SecurityHeadersMiddleware para incluir o cabeçalho CSP, o que mitiga ataques de injeção de dados e Cross Site Scripting (XSS) no frontend da documentação                                                                                                                                                                          |
+| **OWASP ZAP**           | Sub Resource Integrity Missing (Risco Médio) no carregamento do swagger-ui.css. | A05:2021 - Security Misconfiguration                              | Risco Aceito (Baixo Impacto): Refere-se à ausência do atributo de integridade em recursos externos injetados automaticamente pelo Swagger UI do FastAPI a partir de um servidor externo. Como a documentação não estará exposta ao público em produção, o risco de um atacante injetar conteúdo malicioso através desse servidor é negligenciável.                             |
+| **Threat Model**        | BOLA / IDOR (Leitura indevida de dados de outro médico).                        | API1:2023 - Broken Object Level Authorization                     | Corrigido (Exercício 9): Implementação de Ownership no controlador. Exigência de verificação entre current_user.username e o autor do registo.                                                                                                                                                                                                                                 |
+| **Threat Model**        | Mass Assignment (Injeção de campos não previstos).                              | API3:2023 - Broken Object Property Level Auth                     | Corrigido (Exercício 8 e 9): Configuração extra="forbid" no Pydantic V2 e extração do identificador do médico diretamente do token JWT.                                                                                                                                                                                                                                        |
+
+### **Avaliação de Riscos Residuais**
+
+* Ataques de Negação de Serviço Distribuída (DDoS L7): Embora o código conte com a biblioteca Slowapi para aplicar Rate Limiting (mitigando brute-force e credential stuffing de IPs isolados), a aplicação continua suscetível a ataques distribuídos massivos. O limite imposto por IP não impede a exaustão de recursos caso milhares de IPs distintos efetuem pedidos em simultâneo.
+
+### **Parecer de Implantação (Deploy Decision)**
+
+**Decisão: GO (Implantação Aprovada).**
+
+* Riscos Aceitáveis: Os alertas do ZAP refletem apenas limitações do ambiente local (sem TLS) e padrões do Swagger, não indicando falhas lógicas na aplicação.
+
+* Código Seguro: A API de saúde já está blindada internamente contra as vulnerabilidades críticas exigidas (BOLA, BFLA, XSS e Mass Assignment).
+
+* Mitigação em Produção: A proteção contra os riscos residuais (DDoS e TLS) não cabe ao código FastAPI e será delegada à infraestrutura de borda (WAF e API Gateway).
